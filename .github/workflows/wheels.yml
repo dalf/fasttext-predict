@@ -110,7 +110,7 @@ jobs:
 
       matrix:
         os: [macos-latest, windows-2019]
-        python_version: ["3.8", "3.9", "3.10", "3.11", "3.12", "pypy-3.8-v7.3.7", "pypy-3.9-v7.3.9"]
+        python_version: ["3.8", "3.9", "3.10", "3.11", "3.12", "pypy-3.8-v7.3.7", "pypy-3.9-v7.3.9", "pypy-3.10-v7.3.13"]
 
     runs-on: ${{ matrix.os }}
     env: { MACOSX_DEPLOYMENT_TARGET: 10.15 }
