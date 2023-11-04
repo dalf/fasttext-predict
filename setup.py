@@ -17,7 +17,7 @@ from setuptools import setup
 
 ParallelCompile().install()
 
-__version__ = '0.9.2.1'
+__version__ = '0.9.2.2'
 FASTTEXT_SRC = "src"
 
 WIN = sys.platform.startswith("win32") and "mingw" not in sysconfig.get_platform()
