@@ -17,7 +17,7 @@ from setuptools import setup
 
 ParallelCompile().install()
 
-__version__ = '0.9.2.2'
+__version__ = '0.9.2.3'
 FASTTEXT_SRC = "src"
 
 WIN = sys.platform.startswith("win32") and "mingw" not in sysconfig.get_platform()
@@ -61,11 +61,11 @@ setup(
         'Intended Audience :: Developers',
         'Intended Audience :: Science/Research',
         'License :: OSI Approved :: MIT License',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
         'Topic :: Software Development',
         'Topic :: Scientific/Engineering',
         'Operating System :: Microsoft :: Windows',

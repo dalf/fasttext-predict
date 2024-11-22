@@ -13,10 +13,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: "3.x"
 
@@ -28,7 +28,7 @@ jobs:
       env: { STATIC_DEPS: false }
 
     - name: Upload sdist
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: sdist
         path: dist/*.tar.gz
@@ -54,6 +54,7 @@ jobs:
           - musllinux_1_1_x86_64
           - musllinux_1_1_i686
           - musllinux_1_1_aarch64
+          - musllinux_1_2_armv7l
         pyversion: ["*"]
         exclude:
           - image: manylinux2014_aarch64
@@ -62,8 +63,6 @@ jobs:
             pyversion: "*"
         include:
           - image: manylinux2014_aarch64
-            pyversion: "cp38*"
-          - image: manylinux2014_aarch64
             pyversion: "cp39*"
           - image: manylinux2014_aarch64
             pyversion: "cp310*"
@@ -71,8 +70,8 @@ jobs:
             pyversion: "cp311*"
           - image: manylinux2014_aarch64
             pyversion: "cp312*"
-          - image: musllinux_1_1_aarch64
-            pyversion: "cp38*"
+          - image: manylinux2014_aarch64
+            pyversion: "cp313*"
           - image: musllinux_1_1_aarch64
             pyversion: "cp39*"
           - image: musllinux_1_1_aarch64
@@ -81,11 +80,13 @@ jobs:
             pyversion: "cp311*"
           - image: musllinux_1_1_aarch64
             pyversion: "cp312*"
+          - image: musllinux_1_1_aarch64
+            pyversion: "cp313*"
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: "3.x"
 
@@ -96,10 +97,20 @@ jobs:
       run: make sdist wheel_${{ matrix.image }}
       env: { STATIC_DEPS: true, PYTHON_BUILD_VERSION: "${{ matrix.pyversion }}" }
 
+    - name: Prepare Python version without asterisk
+      id: cleanup
+      run: |
+        # Assign the matrix.pyversion to a shell variable
+        CLEANED_PYVERSION="${{ matrix.pyversion }}"
+        # Remove '*' from the variable
+        CLEANED_PYVERSION="${CLEANED_PYVERSION//\*/}"
+        # Set the output variable
+        echo "clean_pyversion=$CLEANED_PYVERSION" >> $GITHUB_OUTPUT
+
     - name: Upload wheels
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
-        name: wheels-${{ matrix.image }}
+        name: wheels-${{ matrix.image }}-${{ steps.cleanup.outputs.clean_pyversion }}
         path: wheelhouse/*/*-m*linux*.whl  # manylinux / musllinux
         if-no-files-found: ignore
 
@@ -110,16 +121,16 @@ jobs:
 
       matrix:
         os: [macos-latest, windows-2019]
-        python_version: ["3.8", "3.9", "3.10", "3.11", "3.12", "pypy-3.8-v7.3.7", "pypy-3.9-v7.3.9", "pypy-3.10-v7.3.13"]
+        python_version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
 
     runs-on: ${{ matrix.os }}
     env: { MACOSX_DEPLOYMENT_TARGET: 10.15 }
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python_version }}
 
@@ -134,9 +145,9 @@ jobs:
       env: { STATIC_DEPS: true }
 
     - name: Upload wheels
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
-        name: wheels-${{ matrix.os }}
+        name: wheels-${{ matrix.os }}-${{ matrix.python_version }}
         path: dist/fasttext_predict-*.whl
         if-no-files-found: ignore
 
@@ -146,10 +157,10 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     needs: [ sdist, Linux, non-Linux ]
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           path: artifacts
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v4
         with:
           python-version: 3.9
       - name: Display structure of downloaded files
@@ -167,6 +178,6 @@ jobs:
           pip install --upgrade wheel pip setuptools twine
           twine upload --skip-existing dist/*
       - name: Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: dist/*
