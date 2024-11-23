@@ -17,7 +17,7 @@ from setuptools import setup
 
 ParallelCompile().install()
 
-__version__ = '0.9.2.3'
+__version__ = '0.9.2.4'
 FASTTEXT_SRC = "src"
 
 WIN = sys.platform.startswith("win32") and "mingw" not in sysconfig.get_platform()
@@ -87,7 +87,7 @@ setup(
             include_dirs=[
                 FASTTEXT_SRC,
             ],
-            cxx_std=11,
+            cxx_std=17,
             extra_compile_args=extra_compile_args,
         )
     ],
