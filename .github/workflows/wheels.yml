@@ -33,142 +33,72 @@ jobs:
         name: sdist
         path: dist/*.tar.gz
 
-  Linux:
-    runs-on: ubuntu-latest
-
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }}
     strategy:
-      # Allows for matrix sub-jobs to fail without canceling the rest
       fail-fast: false
-
       matrix:
-        image:
-          # see
-          # * https://github.com/pypa/manylinux#docker-images
-          # * https://quay.io/organization/pypa
-          # * manylinux1: https://github.com/pypa/manylinux/issues/994#issuecomment-787013983
-          - manylinux2014_x86_64
-          - manylinux2014_i686
-          - manylinux2014_aarch64
-          - manylinux1_x86_64
-          - manylinux1_i686
-          - musllinux_1_1_x86_64
-          - musllinux_1_1_i686
-          - musllinux_1_1_aarch64
-          - musllinux_1_2_armv7l
-        pyversion: ["*"]
-        exclude:
-          - image: manylinux2014_aarch64
-            pyversion: "*"
-          - image: musllinux_1_1_aarch64
-            pyversion: "*"
         include:
-          - image: manylinux2014_aarch64
-            pyversion: "cp39*"
-          - image: manylinux2014_aarch64
-            pyversion: "cp310*"
-          - image: manylinux2014_aarch64
-            pyversion: "cp311*"
-          - image: manylinux2014_aarch64
-            pyversion: "cp312*"
-          - image: manylinux2014_aarch64
-            pyversion: "cp313*"
-          - image: musllinux_1_1_aarch64
-            pyversion: "cp39*"
-          - image: musllinux_1_1_aarch64
-            pyversion: "cp310*"
-          - image: musllinux_1_1_aarch64
-            pyversion: "cp311*"
-          - image: musllinux_1_1_aarch64
-            pyversion: "cp312*"
-          - image: musllinux_1_1_aarch64
-            pyversion: "cp313*"
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.x"
-
-    - name: Install dependencies
-      run: python -m pip install .
-
-    - name: Build Linux wheels
-      run: make sdist wheel_${{ matrix.image }}
-      env: { STATIC_DEPS: true, PYTHON_BUILD_VERSION: "${{ matrix.pyversion }}" }
-
-    - name: Prepare Python version without asterisk
-      id: cleanup
-      run: |
-        # Assign the matrix.pyversion to a shell variable
-        CLEANED_PYVERSION="${{ matrix.pyversion }}"
-        # Remove '*' from the variable
-        CLEANED_PYVERSION="${CLEANED_PYVERSION//\*/}"
-        # Set the output variable
-        echo "clean_pyversion=$CLEANED_PYVERSION" >> $GITHUB_OUTPUT
-
-    - name: Upload wheels
-      uses: actions/upload-artifact@v4
-      with:
-        name: wheels-${{ matrix.image }}-${{ steps.cleanup.outputs.clean_pyversion }}
-        path: wheelhouse/*/*-m*linux*.whl  # manylinux / musllinux
-        if-no-files-found: ignore
-
-  non-Linux:
-    strategy:
-      # Allows for matrix sub-jobs to fail without canceling the rest
-      fail-fast: false
-
-      matrix:
-        os: [macos-latest, windows-2019]
-        python_version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+           - os: ubuntu-latest
+             arch: auto i686 aarch64 armv7l
+             skip: cp36-* cp37-* cp38-* pp37-* pp38-* pp39-*
+           - os: windows-latest
+             arch: AMD64 ARM64
+             skip: cp36-* cp37-* cp38-* pp37-* pp38-* pp39-*
+           - os: macos-13
+             arch: x86_64 arm64 universal2
+             skip: cp36-* cp37-* cp38-* pp*
+           - os: macos-latest
+             arch: x86_64 arm64 universal2
+             skip: cp36-* cp37-* cp38-* pp*
 
     runs-on: ${{ matrix.os }}
-    env: { MACOSX_DEPLOYMENT_TARGET: 10.15 }
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python_version }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
 
-    - name: Install MacOS dependencies
-      if: startsWith(matrix.os, 'mac')
-      run: |
-        brew install automake libtool
-        ln -s /usr/local/bin/glibtoolize /usr/local/bin/libtoolize
+      - name: Install cibuildwheel
+        run: python -m pip install cibuildwheel==2.22.0
 
-    - name: Build wheels
-      run: make sdist wheel
-      env: { STATIC_DEPS: true }
+      - name: Set up QEMU
+        if: runner.os == 'Linux'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: all
 
-    - name: Upload wheels
-      uses: actions/upload-artifact@v4
-      with:
-        name: wheels-${{ matrix.os }}-${{ matrix.python_version }}
-        path: dist/fasttext_predict-*.whl
-        if-no-files-found: ignore
+      - name: Build wheels
+        run: python -m cibuildwheel --output-dir wheelhouse
+        env:
+            CIBW_ARCHS_LINUX: ${{ matrix.arch }}
+            CIBW_SKIP: ${{ matrix.skip }}
+            CIBW_ENABLE: cpython-freethreading
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
+          path: ./wheelhouse/*.whl
 
   release:
     name: Release
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [ sdist, Linux, non-Linux ]
+    needs: [ sdist, build_wheels ]
     steps:
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
       - uses: actions/setup-python@v4
         with:
-          python-version: 3.9
+          python-version: '3.12'
       - name: Display structure of downloaded files
         run: |
           ls -R
           mkdir dist
           mv artifacts/sdist/*.tar.gz dist
-          mv artifacts/*/*/*.whl dist
           mv artifacts/*/*.whl dist
       - name: Publish to PyPi
         env:
